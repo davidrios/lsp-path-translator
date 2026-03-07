@@ -9,7 +9,6 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
-	"sync"
 	"syscall"
 
 	"lsp-path-translator/proxy"
@@ -64,12 +63,8 @@ func main() {
 
 	log.Printf("Started proxy for %s mapping client %q to server %q\n", lspCommand, *clientPath, *serverPath)
 
-	var wg sync.WaitGroup
-	wg.Add(2)
-
 	// Goroutine 1: Client to Server (Stdin -> ServerStdin)
 	go func() {
-		defer wg.Done()
 		defer serverStdin.Close()
 		stream := proxy.NewStreamRW(os.Stdin, serverStdin, clientToServer)
 		for {
@@ -93,7 +88,6 @@ func main() {
 
 	// Goroutine 2: Server to Client (ServerStdout -> Stdout)
 	go func() {
-		defer wg.Done()
 		stream := proxy.NewStreamRW(serverStdout, os.Stdout, serverToClient)
 		for {
 			payload, err := stream.ReadAndTranslate()
@@ -130,5 +124,4 @@ func main() {
 
 	// Ensure everything shuts down
 	cancel()
-	wg.Wait()
 }
