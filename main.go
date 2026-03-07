@@ -12,7 +12,7 @@ import (
 	"sync"
 	"syscall"
 
-	"lspproxy/proxy"
+	"lsp-path-translator/proxy"
 )
 
 func main() {

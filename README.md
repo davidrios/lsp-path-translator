@@ -1,6 +1,6 @@
-# LSP Proxy
+# LSP Path Translator
 
-LSP Proxy is an intermediate proxy for the Language Server Protocol (LSP). It allows a client to communicate with an LSP server by transparently translating file paths in the requests and responses between the two.
+LSP Path Translator is an intermediate proxy for the Language Server Protocol (LSP). It allows a client to communicate with an LSP server by transparently translating file paths in the requests and responses between the two.
 
 This is extremely useful when the LSP server runs in a different environment than the client (e.g., inside a Docker container, an SSH session, or a mounted volume with a different root path structure).
 
@@ -17,8 +17,8 @@ To build the executable proxy:
 
 ```bash
 git clone <repository>
-cd lspproxy
-go build -o bin/lspproxy main.go
+cd lsp-path-translator
+go build -o bin/lsp-path-translator main.go
 ```
 
 ## Usage
@@ -31,13 +31,13 @@ Trailing arguments after `--` represent the underlying language server command t
 Let's assume our actual source code exists at `/host/David/projects/app`, but our gopls language server and our Go environment thinks it lives at `/container/app`:
 
 ```bash
-./bin/lspproxy -client-path /host/David/projects/app -server-path /container/app -- gopls
+./bin/lsp-path-translator -client-path /host/David/projects/app -server-path /container/app -- gopls
 ```
 
 ### Example: Python (`pyright`)
 
 ```bash
-./bin/lspproxy -client-path /mnt/c/Users/David/project -server-path /usr/src/project -- pyright-langserver --stdio
+./bin/lsp-path-translator -client-path /mnt/c/Users/David/project -server-path /usr/src/project -- pyright-langserver --stdio
 ```
 
 ## Development and Testing
