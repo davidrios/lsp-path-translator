@@ -19,8 +19,14 @@ func TestProxyIntegration_TwoWay(t *testing.T) {
 	proxyBackIn, serverOut := io.Pipe() // Server writes to serverOut, proxy reads from proxyBackIn
 	clientIn, proxyBackOut := io.Pipe() // Proxy writes to proxyBackOut, client reads from clientIn
 
-	clientToServer := NewJSONPathTranslator("/client/code", "/server/code")
-	serverToClient := NewJSONPathTranslator("/server/code", "/client/code")
+	clientToServer, err := NewJSONPathTranslators([]string{"/client/code::/server/code"})
+	if err != nil {
+		t.Fatalf("Failed to create clientToServer translators: %v", err)
+	}
+	serverToClient, err := NewJSONPathTranslators([]string{"/server/code::/client/code"})
+	if err != nil {
+		t.Fatalf("Failed to create serverToClient translators: %v", err)
+	}
 
 	var wg sync.WaitGroup
 	wg.Add(2)
@@ -28,7 +34,7 @@ func TestProxyIntegration_TwoWay(t *testing.T) {
 	// Proxy loop: Client to Server
 	go func() {
 		defer wg.Done()
-		stream := NewStreamRW(proxyIn, proxyOut, clientToServer)
+		stream := NewStreamRW(proxyIn, proxyOut, &clientToServer)
 		for {
 			payload, err := stream.ReadAndTranslate()
 			if err != nil {
@@ -46,7 +52,7 @@ func TestProxyIntegration_TwoWay(t *testing.T) {
 	// Proxy loop: Server to Client
 	go func() {
 		defer wg.Done()
-		stream := NewStreamRW(proxyBackIn, proxyBackOut, serverToClient)
+		stream := NewStreamRW(proxyBackIn, proxyBackOut, &serverToClient)
 		for {
 			payload, err := stream.ReadAndTranslate()
 			if err != nil {
@@ -62,8 +68,17 @@ func TestProxyIntegration_TwoWay(t *testing.T) {
 	}()
 
 	// Test orchestrator wrappers
-	clientStream := NewStreamRW(clientIn, clientOut, NewJSONPathTranslator("", ""))
-	serverStream := NewStreamRW(serverIn, serverOut, NewJSONPathTranslator("", ""))
+	emptyTranslators1, err := NewJSONPathTranslators([]string{})
+	if err != nil {
+		t.Fatalf("Failed to create empty translators 1: %v", err)
+	}
+	clientStream := NewStreamRW(clientIn, clientOut, &emptyTranslators1)
+	
+	emptyTranslators2, err := NewJSONPathTranslators([]string{})
+	if err != nil {
+		t.Fatalf("Failed to create empty translators 2: %v", err)
+	}
+	serverStream := NewStreamRW(serverIn, serverOut, &emptyTranslators2)
 
 	// 1. Client sends request to Server
 	clientReq := []byte(`{"method":"initialize","rootUri":"file:///client/code"}`)

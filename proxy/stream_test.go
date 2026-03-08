@@ -16,8 +16,11 @@ func TestStream_ReadAndTranslate(t *testing.T) {
 	reader := strings.NewReader(inputPayload)
 	var writer bytes.Buffer
 
-	translator := NewJSONPathTranslator("/src/workspace", "/dst/workspace")
-	stream := NewStreamRW(reader, &writer, translator)
+	translators, err := NewJSONPathTranslators([]string{"/src/workspace::/dst/workspace"})
+	if err != nil {
+		t.Fatalf("Failed to create translators: %v", err)
+	}
+	stream := NewStreamRW(reader, &writer, &translators)
 
 	translatedBytes, err := stream.ReadAndTranslate()
 	if err != nil {
@@ -32,11 +35,14 @@ func TestStream_ReadAndTranslate(t *testing.T) {
 
 func TestStream_Write(t *testing.T) {
 	var writer bytes.Buffer
-	translator := NewJSONPathTranslator("", "")
-	stream := NewStreamRW(&bytes.Buffer{}, &writer, translator)
+	translators, err := NewJSONPathTranslators([]string{})
+	if err != nil {
+		t.Fatalf("Failed to create translators: %v", err)
+	}
+	stream := NewStreamRW(&bytes.Buffer{}, &writer, &translators)
 
 	payload := []byte(`{"result":"ok"}`)
-	err := stream.Write(payload)
+	err = stream.Write(payload)
 	if err != nil {
 		t.Fatalf("Write() failed: %v", err)
 	}

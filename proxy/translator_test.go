@@ -78,8 +78,11 @@ func TestJSONPathTranslator_Translate(t *testing.T) {
 				t.Fatalf("failed to unmarshal input: %v", err)
 			}
 
-			translator := NewJSONPathTranslator(tt.source, tt.target)
-			translator.Translate(inputData)
+			translators, err := NewJSONPathTranslators([]string{tt.source + "::" + tt.target})
+			if err != nil {
+				t.Fatalf("Failed to create translators: %v", err)
+			}
+			translators[0].Translate(inputData)
 
 			var expectedData any
 			if err := json.Unmarshal([]byte(tt.expected), &expectedData); err != nil {
