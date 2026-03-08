@@ -14,11 +14,20 @@ import (
 	"lsp-path-translator/proxy"
 )
 
+type arrayFlags []string
+
+func (i *arrayFlags) String() string {
+	return fmt.Sprintf("%v", *i)
+}
+func (i *arrayFlags) Set(value string) error {
+	*i = append(*i, value)
+	return nil
+}
+
 func main() {
-	var (
-		clientPath = flag.String("client-path", "", "Base path for the client")
-		serverPath = flag.String("server-path", "", "Base path for the server")
-	)
+	var pathMap arrayFlags
+	flag.Var(&pathMap, "path-map", "Map from client to server in format client::server")
+
 	flag.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [flags] -- <lsp-command> [args...]\n", os.Args[0])
 		flag.PrintDefaults()
@@ -36,8 +45,20 @@ func main() {
 	lspArgs := args[1:]
 
 	// Create translators
-	clientToServer := proxy.NewJSONPathTranslator(*clientPath, *serverPath)
-	serverToClient := proxy.NewJSONPathTranslator(*serverPath, *clientPath)
+	pathMapArr := []string(pathMap)
+
+	clientToServer, err := proxy.NewJSONPathTranslators(pathMapArr)
+	if err != nil {
+		log.Fatalf("Failed to start LSP command: %v", err)
+	}
+
+	serverToClient, err := proxy.NewJSONPathTranslators(pathMapArr)
+	if err != nil {
+		log.Fatalf("Failed to start LSP command: %v", err)
+	}
+	for i := range serverToClient {
+		serverToClient[i].Invert()
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -61,12 +82,12 @@ func main() {
 		log.Fatalf("Failed to start LSP command: %v", err)
 	}
 
-	log.Printf("Started proxy for %s mapping client %q to server %q\n", lspCommand, *clientPath, *serverPath)
+	log.Printf("Started proxy for %s mapping %q\n", lspCommand, pathMapArr)
 
 	// Goroutine 1: Client to Server (Stdin -> ServerStdin)
 	go func() {
 		defer serverStdin.Close()
-		stream := proxy.NewStreamRW(os.Stdin, serverStdin, clientToServer)
+		stream := proxy.NewStreamRW(os.Stdin, serverStdin, &clientToServer)
 		for {
 			payload, err := stream.ReadAndTranslate()
 			if err != nil {
@@ -88,7 +109,7 @@ func main() {
 
 	// Goroutine 2: Server to Client (ServerStdout -> Stdout)
 	go func() {
-		stream := proxy.NewStreamRW(serverStdout, os.Stdout, serverToClient)
+		stream := proxy.NewStreamRW(serverStdout, os.Stdout, &serverToClient)
 		for {
 			payload, err := stream.ReadAndTranslate()
 			if err != nil {

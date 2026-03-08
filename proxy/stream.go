@@ -10,24 +10,24 @@ import (
 )
 
 type Stream struct {
-	reader     *bufio.Reader
-	writer     io.Writer
-	translator *JSONPathTranslator
+	reader      *bufio.Reader
+	writer      io.Writer
+	translators *[]JSONPathTranslator
 }
 
-func NewStream(rw io.ReadWriter, translator *JSONPathTranslator) *Stream {
+func NewStream(rw io.ReadWriter, translators *[]JSONPathTranslator) *Stream {
 	return &Stream{
-		reader:     bufio.NewReader(rw),
-		writer:     rw,
-		translator: translator,
+		reader:      bufio.NewReader(rw),
+		writer:      rw,
+		translators: translators,
 	}
 }
 
-func NewStreamRW(r io.Reader, w io.Writer, translator *JSONPathTranslator) *Stream {
+func NewStreamRW(r io.Reader, w io.Writer, translators *[]JSONPathTranslator) *Stream {
 	return &Stream{
-		reader:     bufio.NewReader(r),
-		writer:     w,
-		translator: translator,
+		reader:      bufio.NewReader(r),
+		writer:      w,
+		translators: translators,
 	}
 }
 
@@ -70,11 +70,6 @@ func (s *Stream) ReadAndTranslate() ([]byte, error) {
 		return nil, fmt.Errorf("failed to read body: %w", err)
 	}
 
-	// Return body as-is if no translation is needed
-	if s.translator.Source == "" || s.translator.Target == "" || s.translator.Source == s.translator.Target {
-		return body, nil
-	}
-
 	// Try to parse the body as JSON
 	var payload any
 	if err := json.Unmarshal(body, &payload); err != nil {
@@ -82,8 +77,16 @@ func (s *Stream) ReadAndTranslate() ([]byte, error) {
 		return body, nil
 	}
 
-	// Translate paths in the JSON payload
-	s.translator.Translate(payload)
+	count := 0
+	for _, translator := range *s.translators {
+		if translator.Translate(payload) {
+			count += 1
+		}
+	}
+
+	if count == 0 {
+		return body, nil
+	}
 
 	// Marshal back to JSON
 	translatedBody, err := json.Marshal(payload)
