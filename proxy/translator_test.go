@@ -78,7 +78,7 @@ func TestJSONPathTranslator_Translate(t *testing.T) {
 				t.Fatalf("failed to unmarshal input: %v", err)
 			}
 
-			translators, err := NewJSONPathTranslators([]string{tt.source + "::" + tt.target})
+			translators, err := NewJSONPathTranslators(map[string]string{tt.source: tt.target})
 			if err != nil {
 				t.Fatalf("Failed to create translators: %v", err)
 			}
