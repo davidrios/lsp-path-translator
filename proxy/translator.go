@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"errors"
 	"strings"
 )
 
@@ -10,14 +9,10 @@ type JSONPathTranslator struct {
 	Target string
 }
 
-func NewJSONPathTranslators(pathMap []string) ([]JSONPathTranslator, error) {
+func NewJSONPathTranslators(pathMap map[string]string) ([]JSONPathTranslator, error) {
 	ret := []JSONPathTranslator{}
-	for _, val := range pathMap {
-		srcDest := strings.Split(val, "::")
-		if len(srcDest) != 2 {
-			return nil, errors.New("invalid source::dest: " + val)
-		}
-		ret = append(ret, JSONPathTranslator{Source: srcDest[0], Target: srcDest[1]})
+	for src, dest := range pathMap {
+		ret = append(ret, JSONPathTranslator{Source: src, Target: dest})
 	}
 
 	return ret, nil

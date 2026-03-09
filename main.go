@@ -9,6 +9,8 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"path/filepath"
+	"strings"
 	"syscall"
 
 	"lsp-path-translator/proxy"
@@ -22,6 +24,37 @@ func (i *arrayFlags) String() string {
 func (i *arrayFlags) Set(value string) error {
 	*i = append(*i, value)
 	return nil
+}
+
+func realpath(p string) (string, error) {
+	absPath, err := filepath.Abs(p)
+	if err != nil {
+		return "", err
+	}
+	finalPath, err := filepath.EvalSymlinks(absPath)
+	if err != nil {
+		return "", err
+	}
+	return finalPath, nil
+}
+
+func pathMapToMap(pathMap arrayFlags) map[string]string {
+	ret := make(map[string]string)
+
+	for _, val := range pathMap {
+		srcDest := strings.Split(val, "::")
+		if len(srcDest) != 2 {
+			log.Fatal("invalid source::dest: " + val)
+		}
+		src, err := realpath(srcDest[0])
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		ret[src] = srcDest[1]
+	}
+
+	return ret
 }
 
 func main() {
@@ -58,14 +91,14 @@ func main() {
 	lspArgs := args[1:]
 
 	// Create translators
-	pathMapArr := []string(pathMap)
+	pathMapMap := pathMapToMap(pathMap)
 
-	clientToServer, err := proxy.NewJSONPathTranslators(pathMapArr)
+	clientToServer, err := proxy.NewJSONPathTranslators(pathMapMap)
 	if err != nil {
 		log.Fatalf("Failed to start LSP command: %v", err)
 	}
 
-	serverToClient, err := proxy.NewJSONPathTranslators(pathMapArr)
+	serverToClient, err := proxy.NewJSONPathTranslators(pathMapMap)
 	if err != nil {
 		log.Fatalf("Failed to start LSP command: %v", err)
 	}
@@ -95,7 +128,7 @@ func main() {
 		log.Fatalf("Failed to start LSP command: %v", err)
 	}
 
-	log.Printf("Started proxy for %s mapping %q\n", lspCommand, pathMapArr)
+	log.Printf("Started proxy for %s mapping %q\n", lspCommand, pathMapMap)
 
 	// Goroutine 1: Client to Server (Stdin -> ServerStdin)
 	go func() {
