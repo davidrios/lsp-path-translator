@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -13,6 +14,7 @@ type Stream struct {
 	reader      *bufio.Reader
 	writer      io.Writer
 	translators *[]JSONPathTranslator
+	logMessages bool
 }
 
 func NewStream(rw io.ReadWriter, translators *[]JSONPathTranslator) *Stream {
@@ -23,11 +25,12 @@ func NewStream(rw io.ReadWriter, translators *[]JSONPathTranslator) *Stream {
 	}
 }
 
-func NewStreamRW(r io.Reader, w io.Writer, translators *[]JSONPathTranslator) *Stream {
+func NewStreamRW(r io.Reader, w io.Writer, translators *[]JSONPathTranslator, logMessages bool) *Stream {
 	return &Stream{
 		reader:      bufio.NewReader(r),
 		writer:      w,
 		translators: translators,
+		logMessages: logMessages,
 	}
 }
 
@@ -92,6 +95,10 @@ func (s *Stream) ReadAndTranslate() ([]byte, error) {
 	translatedBody, err := json.Marshal(payload)
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal translated payload: %w", err)
+	}
+
+	if s.logMessages {
+		log.Printf("%s -> %s\n", body, translatedBody)
 	}
 
 	return translatedBody, nil

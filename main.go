@@ -25,6 +25,10 @@ func (i *arrayFlags) Set(value string) error {
 }
 
 func main() {
+	logFile := flag.String("log-file", "", "Save logging to file")
+
+	logMessages := flag.Bool("log-messages", false, "Log translated LSP messages")
+
 	var pathMap arrayFlags
 	flag.Var(&pathMap, "path-map", "Map from client to server in format client::server")
 
@@ -33,6 +37,15 @@ func main() {
 		flag.PrintDefaults()
 	}
 	flag.Parse()
+
+	if *logFile != "" {
+		f, err := os.OpenFile(*logFile, os.O_APPEND|os.O_CREATE|os.O_RDWR, 0666)
+		if err != nil {
+			log.Fatalf("error opening log file: %v", err)
+		}
+		defer f.Close()
+		log.SetOutput(f)
+	}
 
 	args := flag.Args()
 	if len(args) == 0 {
@@ -87,7 +100,7 @@ func main() {
 	// Goroutine 1: Client to Server (Stdin -> ServerStdin)
 	go func() {
 		defer serverStdin.Close()
-		stream := proxy.NewStreamRW(os.Stdin, serverStdin, &clientToServer)
+		stream := proxy.NewStreamRW(os.Stdin, serverStdin, &clientToServer, *logMessages)
 		for {
 			payload, err := stream.ReadAndTranslate()
 			if err != nil {
@@ -109,7 +122,7 @@ func main() {
 
 	// Goroutine 2: Server to Client (ServerStdout -> Stdout)
 	go func() {
-		stream := proxy.NewStreamRW(serverStdout, os.Stdout, &serverToClient)
+		stream := proxy.NewStreamRW(serverStdout, os.Stdout, &serverToClient, *logMessages)
 		for {
 			payload, err := stream.ReadAndTranslate()
 			if err != nil {
